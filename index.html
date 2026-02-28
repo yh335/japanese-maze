@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>히라가나 미로 서바이벌</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@900&display=swap');
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #020617;
+            touch-action: none;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        canvas {
+            border: 6px solid #1e293b;
+            border-radius: 20px;
+            box-shadow: 0 0 60px rgba(0,0,0,0.8);
+            background-color: #000;
+        }
+        .btn-char {
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .btn-char.active {
+            transform: scale(1.15) translateY(-5px);
+            border-color: #fbbf24;
+            background: #1e293b;
+            box-shadow: 0 10px 20px rgba(251, 191, 36, 0.4);
+        }
+    </style>
+</head>
+<body class="p-4">
+
+    <div id="game-container" class="w-full max-w-3xl bg-slate-900/95 p-6 rounded-[2rem] border border-slate-700 shadow-2xl">
+        <div class="text-center mb-4">
+            <h1 class="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-br from-yellow-300 to-orange-500 uppercase italic">HIRAGANA MAZE</h1>
+            <p class="text-slate-400 text-xs font-bold tracking-widest mt-1">모든 글자의 발음을 확인하며 좀비를 피하세요!</p>
+        </div>
+
+        <!-- 캐릭터 및 스테이지 선택 -->
+        <div id="setup-screen" class="space-y-6">
+            <div class="flex justify-center gap-4">
+                <button onclick="setPlayerType('cat')" id="btn-cat" class="btn-char active bg-slate-800 border-4 border-transparent p-3 rounded-3xl flex flex-col items-center w-20">
+                    <span class="text-4xl">🐱</span>
+                    <span class="text-[10px] mt-2 font-black text-yellow-400">고양이</span>
+                </button>
+                <button onclick="setPlayerType('dog')" id="btn-dog" class="btn-char bg-slate-800 border-4 border-transparent p-3 rounded-3xl flex flex-col items-center w-20">
+                    <span class="text-4xl">🐶</span>
+                    <span class="text-[10px] mt-2 font-black text-blue-400">강아지</span>
+                </button>
+                <button onclick="setPlayerType('bear')" id="btn-bear" class="btn-char bg-slate-800 border-4 border-transparent p-3 rounded-3xl flex flex-col items-center w-20">
+                    <span class="text-4xl">🐻</span>
+                    <span class="text-[10px] mt-2 font-black text-orange-400">곰</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-5 gap-2">
+                <button onclick="initGame(0)" class="bg-indigo-600 hover:bg-indigo-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-indigo-900 active:translate-y-1 active:border-b-0">あ</button>
+                <button onclick="initGame(1)" class="bg-rose-600 hover:bg-rose-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-rose-900 active:translate-y-1 active:border-b-0">か</button>
+                <button onclick="initGame(2)" class="bg-amber-600 hover:bg-amber-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-amber-900 active:translate-y-1 active:border-b-0">さ</button>
+                <button onclick="initGame(3)" class="bg-emerald-600 hover:bg-emerald-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-emerald-900 active:translate-y-1 active:border-b-0">た</button>
+                <button onclick="initGame(4)" class="bg-sky-600 hover:bg-sky-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-sky-900 active:translate-y-1 active:border-b-0">な</button>
+                <button onclick="initGame(5)" class="bg-pink-600 hover:bg-pink-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-pink-900 active:translate-y-1 active:border-b-0">は</button>
+                <button onclick="initGame(6)" class="bg-violet-600 hover:bg-violet-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-violet-900 active:translate-y-1 active:border-b-0">ま</button>
+                <button onclick="initGame(7)" class="bg-orange-600 hover:bg-orange-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-orange-900 active:translate-y-1 active:border-b-0">や</button>
+                <button onclick="initGame(8)" class="bg-teal-600 hover:bg-teal-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-teal-900 active:translate-y-1 active:border-b-0">ら</button>
+                <button onclick="initGame(9)" class="bg-slate-600 hover:bg-slate-500 p-3 rounded-xl font-black text-lg text-white shadow-lg border-b-4 border-slate-900 active:translate-y-1 active:border-b-0">わ</button>
+            </div>
+        </div>
+
+        <!-- 게임 플레이 화면 -->
+        <div id="play-screen" class="hidden relative flex flex-col items-center">
+            <div class="w-full flex justify-between items-center mb-3 px-1">
+                <div class="bg-slate-800 px-3 py-1 rounded-lg border border-slate-600">
+                    <span class="text-[9px] text-slate-400 block font-black">NEXT TARGET</span>
+                    <span id="current-target-display" class="text-xl font-black text-yellow-400">あ</span>
+                </div>
+                <div class="text-right">
+                    <span id="stage-name" class="text-sm font-black text-white">あ행</span>
+                    <div class="h-1.5 w-24 bg-slate-950 rounded-full mt-1">
+                        <div id="prog-bar" class="h-full bg-yellow-400 transition-all" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <canvas id="gameCanvas"></canvas>
+
+            <div id="game-overlay" class="hidden absolute inset-0 bg-slate-950/90 z-50 rounded-2xl flex flex-col items-center justify-center p-6 text-center">
+                <h2 id="result-msg" class="text-4xl font-black mb-4 italic text-white">GAME OVER</h2>
+                <button onclick="location.reload()" class="bg-yellow-400 text-slate-950 px-10 py-3 rounded-full font-black text-lg shadow-xl active:scale-95">다시 하기</button>
+            </div>
+
+            <!-- 컨트롤러 -->
+            <div class="mt-6 grid grid-cols-3 gap-2">
+                <div class="col-start-2"><button onmousedown="handleInput('up')" class="w-14 h-14 bg-slate-700 text-white rounded-xl flex items-center justify-center text-xl shadow-lg border-b-4 border-slate-900 active:translate-y-1 active:border-b-0">▲</button></div>
+                <div class="col-start-1 row-start-2"><button onmousedown="handleInput('left')" class="w-14 h-14 bg-slate-700 text-white rounded-xl flex items-center justify-center text-xl shadow-lg border-b-4 border-slate-900 active:translate-y-1 active:border-b-0">◀</button></div>
+                <div class="col-start-2 row-start-2"><button onmousedown="handleInput('down')" class="w-14 h-14 bg-slate-700 text-white rounded-xl flex items-center justify-center text-xl shadow-lg border-b-4 border-slate-900 active:translate-y-1 active:border-b-0">▼</button></div>
+                <div class="col-start-3 row-start-2"><button onmousedown="handleInput('right')" class="w-14 h-14 bg-slate-700 text-white rounded-xl flex items-center justify-center text-xl shadow-lg border-b-4 border-slate-900 active:translate-y-1 active:border-b-0">▶</button></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const TILE_SIZE = 40;
+        const GRID_W = 15;
+        const GRID_H = 11;
+        canvas.width = TILE_SIZE * GRID_W;
+        canvas.height = TILE_SIZE * GRID_H;
+
+        const HIRAGANA_DATA = [
+            ["あ","い","う","え","お"], ["か","き","く","け","こ"],
+            ["さ","し","す","세","そ"], ["た","ち","つ","て","と"],
+            ["な","に","ぬ","ね","の"], ["は","ひ","ふ","へ","ほ"],
+            ["ま","み","무","め","も"], ["や","ゆ","よ"],
+            ["ら","り","る","れ","ろ"], ["わ","を","ん"]
+        ];
+
+        const ROMAJI_MAP = {
+            "あ":"a","い":"i","う":"u","え":"e","오":"o","お":"o",
+            "か":"ka","き":"ki","く":"ku","け":"ke","코":"ko","こ":"ko",
+            "사":"sa","さ":"sa","し":"shi","す":"su","세":"se","そ":"so",
+            "た":"ta","ち":"chi","つ":"tsu","て":"te","と":"to",
+            "나":"na","에":"ni","에":"ni","に":"ni","ぬ":"nu","네":"ne","의":"no","의":"no","노":"no","no":"no","の":"no",
+            "하":"ha","は":"ha","히":"hi","ひ":"hi","후":"fu","ふ":"fu","헤":"he","へ":"he","호":"ho","ほ":"ho",
+            "마":"ma","ま":"ma","미":"mi","み":"mi","무":"mu","む":"mu","메":"me","め":"me","모":"mo","も":"mo",
+            "야":"ya","や":"ya","유":"yu","ゆ":"yu","요":"yo","よ":"yo",
+            "라":"ra","ら":"ra","리":"ri","り":"ri","루":"ru","る":"ru","레":"re","れ":"re","로":"ro","ろ":"ro",
+            "와":"wa","わ":"wa","을":"wo","를":"wo","を":"wo","ん":"n"
+        };
+
+        const THEMES = [
+            { bg: '#0f172a', wall: '#334155', accent: '#475569' },
+            { bg: '#1a0d0d', wall: '#7f1d1d', accent: '#991b1b' },
+            { bg: '#1c1917', wall: '#78350f', accent: '#92400e' },
+            { bg: '#064e3b', wall: '#065f46', accent: '#059669' },
+            { bg: '#0c4a6e', wall: '#0369a1', accent: '#0ea5e9' },
+            { bg: '#4c0519', wall: '#881337', accent: '#be123c' },
+            { bg: '#2e1065', wall: '#4c1d95', accent: '#6d28d9' },
+            { bg: '#431407', wall: '#7c2d12', accent: '#9a3412' },
+            { bg: '#134e4a', wall: '#0f766e', accent: '#14b8a6' },
+            { bg: '#020617', wall: '#1e293b', accent: '#334155' }
+        ];
+
+        let state = {
+            maze: [], player: {x:1, y:1, tx:1, ty:1, type:'cat'},
+            zombies: [], items: [],
+            collected: 0, total: 0,
+            active: false, over: false,
+            theme: THEMES[0],
+            timer: 0, flashRomaji: false,
+            lastTime: 0
+        };
+
+        function setPlayerType(t) {
+            state.player.type = t;
+            document.querySelectorAll('.btn-char').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${t}`).classList.add('active');
+        }
+
+        function generateMaze() {
+            let m = Array(GRID_H).fill().map(() => Array(GRID_W).fill(1));
+            const stack = [[1, 1]];
+            m[1][1] = 0;
+            
+            while (stack.length > 0) {
+                const [cx, cy] = stack[stack.length - 1];
+                const dirs = [[0,2],[0,-2],[2,0],[-2,0]].sort(() => Math.random()-0.5);
+                let found = false;
+                for(let [dx, dy] of dirs) {
+                    let nx = cx+dx, ny = cy+dy;
+                    if(nx>0 && nx<GRID_W-1 && ny>0 && ny<GRID_H-1 && m[ny][nx] === 1) {
+                        m[cy+dy/2][cx+dx/2] = 0;
+                        m[ny][nx] = 0;
+                        stack.push([nx, ny]);
+                        found = true; break;
+                    }
+                }
+                if(!found) stack.pop();
+            }
+
+            for(let y=1; y<GRID_H-1; y++) {
+                for(let x=1; x<GRID_W-1; x++) {
+                    if(m[y][x] === 1) {
+                        const hOpen = (m[y][x-1] === 0 && m[y][x+1] === 0);
+                        const vOpen = (m[y-1][x] === 0 && m[y+1][x] === 0);
+                        if((hOpen || vOpen) && Math.random() < 0.45) m[y][x] = 0;
+                    }
+                }
+            }
+            return m;
+        }
+
+        function initGame(idx) {
+            state.maze = generateMaze();
+            state.theme = THEMES[idx];
+            state.collected = 0;
+            state.over = false;
+            state.timer = 0;
+            const chars = HIRAGANA_DATA[idx];
+            state.total = chars.length;
+            state.items = [];
+            
+            chars.forEach((c, i) => {
+                let ok = false;
+                while(!ok) {
+                    let rx = Math.floor(Math.random()*(GRID_W-2))+1;
+                    let ry = Math.floor(Math.random()*(GRID_H-2))+1;
+                    const isFarFromItems = state.items.every(it => Math.abs(it.x - rx) + Math.abs(it.y - ry) >= 2);
+                    if(state.maze[ry][rx] === 0 && (rx+ry > 4) && isFarFromItems) {
+                        state.items.push({x:rx, y:ry, char:c, order:i, done:false});
+                        ok = true;
+                    }
+                }
+            });
+
+            state.zombies = [
+                {x:GRID_W-2, y:GRID_H-2, tx:GRID_W-2, ty:GRID_H-2, speed:1.3, lastDir:{dx:0,dy:0}},
+                {x:GRID_W-2, y:1, tx:GRID_W-2, ty:1, speed:1.0, lastDir:{dx:0,dy:0}},
+                {x:1, y:GRID_H-2, tx:1, ty:GRID_H-2, speed:0.8, lastDir:{dx:0,dy:0}}
+            ];
+            state.player.x = state.player.tx = 1; state.player.y = state.player.ty = 1;
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('play-screen').classList.remove('hidden');
+            document.getElementById('stage-name').innerText = `${chars[0]}행 스테이지`;
+            updateTargetUI();
+            
+            state.active = true;
+            state.lastTime = performance.now();
+            requestAnimationFrame(loop);
+        }
+
+        function updateTargetUI() {
+            const current = state.items.find(it => it.order === state.collected);
+            document.getElementById('current-target-display').innerText = current ? current.char : "🎉";
+            document.getElementById('prog-bar').style.width = `${(state.collected/state.total)*100}%`;
+        }
+
+        function handleInput(dir) {
+            if(!state.active || state.over) return;
+            if(state.player.x === state.player.tx && state.player.y === state.player.ty) {
+                let nx = state.player.x, ny = state.player.y;
+                if(dir==='up') ny--; if(dir==='down') ny++; if(dir==='left') nx--; if(dir==='right') nx++;
+                if(nx>=0 && nx<GRID_W && ny>=0 && ny<GRID_H && state.maze[ny] && state.maze[ny][nx]===0) {
+                    state.player.tx = nx; state.player.ty = ny;
+                }
+            }
+        }
+
+        window.addEventListener('keydown', e => { if(e.key.includes('Arrow')) { e.preventDefault(); handleInput(e.key.replace('Arrow','').toLowerCase()); } });
+
+        function update(dt) {
+            if(!state.active || state.over) return;
+            state.timer += dt;
+            const blinkCycle = 2.0;
+            state.flashRomaji = (state.timer % blinkCycle) > (blinkCycle * 0.5);
+
+            const ps = 8 * dt;
+            if(Math.abs(state.player.tx - state.player.x) < ps) state.player.x = state.player.tx;
+            else state.player.x += (state.player.tx > state.player.x ? 1 : -1) * ps;
+            if(Math.abs(state.player.ty - state.player.y) < ps) state.player.y = state.player.ty;
+            else state.player.y += (state.player.ty > state.player.y ? 1 : -1) * ps;
+
+            if(state.player.x === state.player.tx && state.player.y === state.player.ty) {
+                let it = state.items.find(i => !i.done && i.order === state.collected);
+                if(it && it.x === state.player.x && it.y === state.player.y) {
+                    it.done = true;
+                    state.collected++;
+                    updateTargetUI();
+                    if(state.collected >= state.total) finish(true);
+                }
+            }
+
+            state.zombies.forEach(z => {
+                const zs = z.speed * dt;
+                if(Math.abs(z.x - z.tx) < zs && Math.abs(z.y - z.ty) < zs) {
+                    z.x = z.tx; z.y = z.ty;
+                    let possibleDirs = [{dx:1, dy:0}, {dx:-1, dy:0}, {dx:0, dy:1}, {dx:0, dy:-1}].filter(d => {
+                        let nx = z.tx + d.dx, ny = z.ty + d.dy;
+                        return nx>=0 && nx<GRID_W && ny>=0 && ny<GRID_H && state.maze[ny][nx] === 0;
+                    });
+                    if (possibleDirs.length > 1) {
+                        const forwardDirs = possibleDirs.filter(d => !(d.dx === -z.lastDir.dx && d.dy === -z.lastDir.dy));
+                        if(forwardDirs.length > 0) possibleDirs = forwardDirs;
+                    }
+                    let chosen = possibleDirs.sort((a, b) => {
+                        const distA = Math.hypot(z.tx + a.dx - state.player.x, z.ty + a.dy - state.player.y);
+                        const distB = Math.hypot(z.tx + b.dx - state.player.x, z.ty + b.dy - state.player.y);
+                        return distA - distB;
+                    })[0];
+                    if(chosen) { z.tx += chosen.dx; z.ty += chosen.dy; z.lastDir = chosen; }
+                }
+                if(z.x !== z.tx) z.x += (z.tx - z.x > 0 ? 1 : -1) * Math.min(Math.abs(z.tx - z.x), zs);
+                if(z.y !== z.ty) z.y += (z.ty - z.y > 0 ? 1 : -1) * Math.min(Math.abs(z.ty - z.y), zs);
+                if(Math.hypot(z.x - state.player.x, z.y - state.player.y) < 0.65) finish(false);
+            });
+        }
+
+        function finish(win) {
+            state.over = true;
+            const overlay = document.getElementById('game-overlay');
+            overlay.classList.remove('hidden');
+            const msg = document.getElementById('result-msg');
+            msg.innerText = win ? "STAGE CLEAR! 🎉" : "GAME OVER 🧟";
+            msg.className = win ? "text-4xl font-black mb-4 italic text-yellow-400" : "text-4xl font-black mb-4 italic text-red-500";
+        }
+
+        function draw() {
+            ctx.fillStyle = state.theme.bg; ctx.fillRect(0, 0, canvas.width, canvas.height);
+            if (!state.maze.length) return;
+            for(let y=0; y<GRID_H; y++) {
+                for(let x=0; x<GRID_W; x++) {
+                    if(state.maze[y][x] === 1) {
+                        ctx.fillStyle = state.theme.wall;
+                        ctx.beginPath(); ctx.roundRect(x*TILE_SIZE+2, y*TILE_SIZE+2, TILE_SIZE-4, TILE_SIZE-4, 8); ctx.fill();
+                    }
+                }
+            }
+            state.items.forEach(it => {
+                if(!it.done) {
+                    const isTarget = it.order === state.collected;
+                    const tx = it.x * TILE_SIZE + TILE_SIZE/2, ty = it.y * TILE_SIZE + TILE_SIZE/2;
+                    ctx.fillStyle = isTarget ? '#fbbf24' : '#64748b'; 
+                    if(isTarget) { ctx.shadowBlur = 15; ctx.shadowColor = '#fbbf24'; }
+                    ctx.beginPath(); ctx.arc(tx, ty, isTarget ? 18 : 14, 0, Math.PI*2); ctx.fill();
+                    ctx.shadowBlur = 0;
+                    ctx.fillStyle = isTarget ? '#000000' : '#ffffff';
+                    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                    if(state.flashRomaji) {
+                        ctx.font = 'bold 12px Arial';
+                        const roman = (ROMAJI_MAP[it.char] || "").toLowerCase();
+                        ctx.fillText(roman, tx, ty);
+                    } else {
+                        ctx.font = '900 18px Noto Sans JP';
+                        ctx.fillText(it.char, tx, ty);
+                    }
+                }
+            });
+            state.zombies.forEach(z => {
+                ctx.font = "28px Arial"; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                const wobble = Math.sin(Date.now() * 0.01) * 2;
+                ctx.fillText("🧟", z.x * TILE_SIZE + TILE_SIZE/2, z.y * TILE_SIZE + TILE_SIZE/2 + wobble);
+            });
+            const pEmoji = state.player.type === 'dog' ? "🐶" : state.player.type === 'bear' ? "🐻" : "🐱";
+            ctx.font = "32px Arial";
+            ctx.fillText(pEmoji, state.player.x * TILE_SIZE + TILE_SIZE/2, state.player.y * TILE_SIZE + TILE_SIZE/2);
+        }
+        function loop(now) {
+            if(!state.active) return;
+            const dt = Math.min((now - state.lastTime) / 1000, 0.1);
+            state.lastTime = now;
+            update(dt); draw();
+            requestAnimationFrame(loop);
+        }
+        draw();
+    </script>
+</body>
+</html>
